@@ -26,10 +26,14 @@ class UserManagementScreen extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    await FirebaseService().deleteUser(u.uid);
+    String msg = 'ลบบัญชี ${u.email} แล้ว';
+    try {
+      await FirebaseService().deleteUser(u.uid);
+    } catch (e) {
+      msg = 'ลบบัญชีไม่สำเร็จ: $e';
+    }
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('ลบบัญชี ${u.email} แล้ว')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -38,6 +42,9 @@ class UserManagementScreen extends StatelessWidget {
     return StreamBuilder<List<AppUser>>(
       stream: service.usersStream(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -72,12 +79,16 @@ class UserManagementScreen extends StatelessWidget {
                             ],
                             onChanged: (newRole) async {
                               if (newRole == null || newRole == u.role) return;
-                              await service.updateRole(u.uid, newRole);
+                              String msg =
+                                  'เปลี่ยนสิทธิ์ ${u.email} เป็น ${newRole.toUpperCase()} แล้ว';
+                              try {
+                                await service.updateRole(u.uid, newRole);
+                              } catch (e) {
+                                msg = 'เปลี่ยนสิทธิ์ไม่สำเร็จ: $e';
+                              }
                               if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'เปลี่ยนสิทธิ์ ${u.email} เป็น ${newRole.toUpperCase()} แล้ว')));
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(msg)));
                             },
                           ),
                           IconButton(

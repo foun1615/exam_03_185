@@ -15,7 +15,7 @@ class DisplayScreen extends StatelessWidget {
       case 2:
         return Colors.orange;
       case 3:
-        return Colors.yellow;
+        return Colors.yellow.shade800;
       case 4:
         return Colors.green;
       default:
@@ -168,7 +168,7 @@ class _EditDialogState extends State<_EditDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     try {
-      final newRef = _referralId.text.trim();
+      final newRef = _referralId.text.trim().toUpperCase();
       await FirebaseService().updatePatient(widget.patient.id!, {
         // ส่งเฉพาะเมื่อมีการเปลี่ยนรหัส จะได้ไม่ถูกบล็อกเพราะข้อมูลเก่าที่ซ้ำอยู่แล้ว
         if (newRef != widget.patient.referralId) 'referralId': newRef,
@@ -211,6 +211,7 @@ class _EditDialogState extends State<_EditDialog> {
             children: [
               TextFormField(
                 controller: _referralId,
+                textCapitalization: TextCapitalization.characters,
                 decoration: const InputDecoration(
                     labelText: 'รหัสส่งต่อผู้ป่วย (Referral ID)'),
                 autovalidateMode: AutovalidateMode.onUserInteraction,

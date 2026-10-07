@@ -66,8 +66,13 @@ class FirebaseService {
 
   /// รายชื่อผู้ใช้ทั้งหมด (Real-time) สำหรับหน้าจัดการผู้ใช้ของ Admin
   Stream<List<AppUser>> usersStream() {
-    return _users.snapshots().map(
-        (snap) => snap.docs.map((d) => AppUser.fromMap(d.data())).toList());
+    return _users.snapshots().map((snap) {
+      final list = snap.docs.map((d) => AppUser.fromMap(d.data())).toList();
+      // เรียงตามอีเมล ลำดับในรายการจะได้ไม่สลับไปมา
+      list.sort(
+          (a, b) => a.email.toLowerCase().compareTo(b.email.toLowerCase()));
+      return list;
+    });
   }
 
   /// Admin ปรับระดับสิทธิ์ผู้ใช้ ('admin' หรือ 'operator')

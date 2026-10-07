@@ -55,7 +55,7 @@ class _FormScreenState extends State<FormScreen> {
     setState(() => _saving = true);
     try {
       await _service.addPatient(PatientModel(
-        referralId: _referralId.text.trim(),
+        referralId: _referralId.text.trim().toUpperCase(),
         patientName: _name.text.trim(),
         doctorEmail: _doctorEmail.text.trim(),
         triageScore: int.parse(_triage.text.trim()),
@@ -100,6 +100,7 @@ class _FormScreenState extends State<FormScreen> {
           children: [
             TextFormField(
               controller: _referralId,
+              textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                   labelText: 'รหัสส่งต่อผู้ป่วย (Referral ID)',
                   hintText: 'เช่น REF-EMR-2026',
