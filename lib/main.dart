@@ -46,26 +46,39 @@ class AuthGate extends StatelessWidget {
         final user = snap.data;
         if (user == null) return const LoginScreen();
 
-        return FutureBuilder<AppUser?>(
-          future: service.getAppUser(user.uid),
+        // ติดตามข้อมูล role แบบ Real-time
+        // (ตอนสมัครใหม่ ข้อมูลจะถูกบันทึกลง Firestore ตามมา จึงรอโหลดสักครู่)
+        return StreamBuilder<AppUser?>(
+          stream: service.appUserStream(user.uid),
           builder: (context, roleSnap) {
-            if (roleSnap.connectionState == ConnectionState.waiting) {
+            // ยังโหลดไม่เสร็จ หรือกำลังสมัคร (รอบันทึกข้อมูลลง Firestore)
+            if (roleSnap.connectionState == ConnectionState.waiting ||
+                (roleSnap.data == null && FirebaseService.registering)) {
               return const Scaffold(
                   body: Center(child: CircularProgressIndicator()));
             }
             final appUser = roleSnap.data;
+            // ไม่มีข้อมูลผู้ใช้ใน Firestore = ถูก Admin ลบออกจากระบบแล้ว
             if (appUser == null) {
               return Scaffold(
                 body: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('ไม่พบข้อมูลสิทธิ์ผู้ใช้ในระบบ'),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                          onPressed: service.signOut,
-                          child: const Text('Sign Out')),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.block, size: 64, color: Colors.red),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'บัญชีนี้ถูกลบออกจากระบบแล้ว\nกรุณาติดต่อผู้ดูแลระบบ',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                            onPressed: service.signOut,
+                            child: const Text('Sign Out')),
+                      ],
+                    ),
                   ),
                 ),
               );

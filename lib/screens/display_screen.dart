@@ -131,6 +131,8 @@ class _EditDialogState extends State<_EditDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name =
       TextEditingController(text: widget.patient.patientName);
+  late final TextEditingController _doctorEmail =
+      TextEditingController(text: widget.patient.doctorEmail);
   late final TextEditingController _triage =
       TextEditingController(text: widget.patient.triageScore.toString());
   late final TextEditingController _spo2 =
@@ -141,6 +143,7 @@ class _EditDialogState extends State<_EditDialog> {
     try {
       await FirebaseService().updatePatient(widget.patient.id!, {
         'patientName': _name.text.trim(),
+        'doctorEmail': _doctorEmail.text.trim(),
         'triageScore': int.parse(_triage.text.trim()),
         'spo2': double.parse(_spo2.text.trim()),
       });
@@ -155,6 +158,7 @@ class _EditDialogState extends State<_EditDialog> {
   @override
   void dispose() {
     _name.dispose();
+    _doctorEmail.dispose();
     _triage.dispose();
     _spo2.dispose();
     super.dispose();
@@ -163,7 +167,7 @@ class _EditDialogState extends State<_EditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('อัปเดตสัญญาณชีพ / ระดับความเร่งด่วน'),
+      title: const Text('แก้ไขข้อมูลผู้ป่วย'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -174,6 +178,13 @@ class _EditDialogState extends State<_EditDialog> {
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'ชื่อ / HN'),
                 validator: PatientValidators.required.call,
+              ),
+              TextFormField(
+                controller: _doctorEmail,
+                keyboardType: TextInputType.emailAddress,
+                decoration:
+                    const InputDecoration(labelText: 'อีเมลแพทย์ผู้ส่งตัว'),
+                validator: PatientValidators.email,
               ),
               TextFormField(
                 controller: _triage,

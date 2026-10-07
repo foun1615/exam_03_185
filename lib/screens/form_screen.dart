@@ -7,10 +7,15 @@ import 'package:exam_03_185/models/patient_model.dart';
 class PatientValidators {
   static final required = RequiredValidator(errorText: 'ห้ามเว้นว่าง');
 
-  static final email = MultiValidator([
-    RequiredValidator(errorText: 'กรุณากรอกอีเมล'),
-    EmailValidator(errorText: 'รูปแบบอีเมลไม่ถูกต้อง'),
-  ]);
+  // อีเมล: ตัดช่องว่างหน้า-หลังก่อนตรวจ (คีย์บอร์ดมือถือมักเติมช่องว่างต่อท้าย)
+  static String? email(String? v) {
+    final value = (v ?? '').trim();
+    if (value.isEmpty) return 'กรุณากรอกอีเมล';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+      return 'รูปแบบอีเมลไม่ถูกต้อง';
+    }
+    return null;
+  }
 
   static String? triage(String? v) {
     if (v == null || v.trim().isEmpty) return 'ห้ามเว้นว่าง';
@@ -110,7 +115,7 @@ class _FormScreenState extends State<FormScreen> {
               decoration: const InputDecoration(
                   labelText: 'อีเมลแพทย์ผู้ส่งตัว',
                   border: OutlineInputBorder()),
-              validator: PatientValidators.email.call,
+              validator: PatientValidators.email,
             ),
             const SizedBox(height: 12),
             TextFormField(

@@ -22,37 +22,76 @@ class FirebaseService {
 
   Future<void> signOut() => _auth.signOut();
 
-  /// ดึงข้อมูล role ของผู้ใช้จาก collection users
-  Future<AppUser?> getAppUser(String uid) async {
-    final doc = await _users.doc(uid).get();
-    if (!doc.exists) return null;
-    return AppUser.fromMap(doc.data()!);
-  }
+  /// เป็น true ระหว่างกำลังสมัคร (AuthGate จะรอจนบันทึกข้อมูลผู้ใช้เสร็จ)
+  static bool registering = false;
 
-  /// สร้างบัญชีทดสอบ 2 บัญชี (รหัสผ่าน 123456) พร้อมบันทึก role
-  Future<void> seedTestUsers() async {
-    await _seed('admin@test.com', 'Admin Test', 'admin');
-    await _seed('operator@test.com', 'Operator Test', 'operator');
-    await _auth.signOut();
-  }
-
-  Future<void> _seed(String email, String name, String role) async {
-    const pw = '123456';
-    UserCredential cred;
+  /// สมัครสมาชิกใหม่ (ผู้สมัครเองได้สิทธิ์ operator)
+  /// ผลลัพธ์: มีบัญชีใน Firebase Authentication และมีข้อมูลใน Firestore (users)
+  Future<void> signUp(String name, String email, String password) async {
+    registering = true;
     try {
-      cred = await _auth.createUserWithEmailAndPassword(
-          email: email, password: pw);
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
-        cred = await _auth.signInWithEmailAndPassword(
-            email: email, password: pw);
-      } else {
+      final cred = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(), password: password);
+      final user = AppUser(
+          uid: cred.user!.uid,
+          name: name.trim(),
+          email: email.trim(),
+          role: 'operator');
+      try {
+        await _users.doc(user.uid).set(user.toMap());
+      } catch (e) {
+        // บันทึก Firestore ไม่สำเร็จ -> ลบบัญชีที่เพิ่งสร้าง จะได้ไม่เหลือบัญชีค้าง
+        await cred.user!.delete();
         rethrow;
       }
+    } finally {
+      registering = false;
     }
-    final user = AppUser(
-        uid: cred.user!.uid, name: name, email: email, role: role);
-    await _users.doc(user.uid).set(user.toMap());
+  }
+
+  /// ติดตามข้อมูลผู้ใช้คนเดียว (Real-time) ใช้ตรวจสิทธิ์ตอนเข้าแอป
+  Stream<AppUser?> appUserStream(String uid) {
+    return _users.doc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return AppUser.fromMap(doc.data()!);
+    });
+  }
+
+  /// รายชื่อผู้ใช้ทั้งหมด (Real-time) สำหรับหน้าจัดการผู้ใช้ของ Admin
+  Stream<List<AppUser>> usersStream() {
+    return _users.snapshots().map(
+        (snap) => snap.docs.map((d) => AppUser.fromMap(d.data())).toList());
+  }
+
+  /// Admin ปรับระดับสิทธิ์ผู้ใช้ ('admin' หรือ 'operator')
+  Future<void> updateRole(String uid, String role) async {
+    await _users.doc(uid).update({'role': role});
+  }
+
+  /// Admin ลบบัญชีผู้ใช้ออกจากระบบ (ลบเอกสารใน collection users)
+  /// ผู้ใช้ที่ถูกลบจะเข้าใช้แอปไม่ได้อีก
+  Future<void> deleteUser(String uid) async {
+    await _users.doc(uid).delete();
+  }
+
+  /// แปลงรหัส error ของ Firebase Auth เป็นข้อความภาษาไทย
+  String authMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'รูปแบบอีเมลไม่ถูกต้อง';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+      case 'email-already-in-use':
+        return 'อีเมลนี้ถูกใช้สมัครแล้ว';
+      case 'weak-password':
+        return 'รหัสผ่านสั้นเกินไป (อย่างน้อย 6 ตัวอักษร)';
+      case 'network-request-failed':
+        return 'เชื่อมต่ออินเทอร์เน็ตไม่ได้';
+      default:
+        return 'เกิดข้อผิดพลาด: ${e.code}';
+    }
   }
 
   // ---------------- Firestore CRUD ----------------

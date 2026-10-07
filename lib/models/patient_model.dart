@@ -44,7 +44,7 @@ class AppUser {
   final String uid;
   final String name;
   final String email;
-  final String role; // 'Admin' หรือ 'Operator'
+  final String role; // 'admin' หรือ 'operator'
 
   AppUser({
     required this.uid,
@@ -53,7 +53,7 @@ class AppUser {
     required this.role,
   });
 
-  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isAdmin => role == 'admin';
 
   Map<String, dynamic> toMap() =>
       {'uid': uid, 'name': name, 'email': email, 'role': role};
@@ -62,6 +62,7 @@ class AppUser {
         uid: m['uid'] ?? '',
         name: m['name'] ?? '',
         email: m['email'] ?? '',
-        role: m['role'] ?? 'Operator',
+        // เก็บเป็นตัวพิมพ์เล็กเสมอ (admin / operator)
+        role: (m['role'] ?? 'operator').toString().toLowerCase(),
       );
 }
