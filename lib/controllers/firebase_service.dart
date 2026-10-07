@@ -2,6 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exam_03_185/models/patient_model.dart';
 
+/// Referral ID ซ้ำกับเคสที่มีอยู่แล้ว
+class DuplicateReferralException implements Exception {
+  static const message = 'รหัสนี้ถูกใช้แล้ว';
+  @override
+  String toString() => message;
+}
+
 /// รวม Auth + Firestore CRUD
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -95,24 +102,47 @@ class FirebaseService {
   }
 
   // ---------------- Firestore CRUD ----------------
+  /// ตรวจว่า Referral ID ซ้ำหรือไม่ (ข้ามเอกสารของตัวเองตอนแก้ไขด้วย excludeId)
+  /// ถ้าซ้ำจะ throw DuplicateReferralException
+  Future<void> _ensureReferralUnique(String referralId,
+      {String? excludeId}) async {
+    final snap = await _patients
+        .where('referralId', isEqualTo: referralId.trim())
+        .limit(2)
+        .get();
+    final taken = snap.docs.any((d) => d.id != excludeId);
+    if (taken) throw DuplicateReferralException();
+  }
+
   // Create
   Future<void> addPatient(PatientModel p) async {
+    await _ensureReferralUnique(p.referralId);
     await _patients.add({
       ...p.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Read (Real-time)
+  // Read (Real-time) เรียงตามความเร่งด่วน: Triage 1 อยู่บนสุด
+  // ถ้า Triage เท่ากัน เคสใหม่กว่าอยู่ก่อน
+  // (เรียงฝั่งแอป จึงไม่ต้องสร้าง Composite Index ใน Firestore)
   Stream<List<PatientModel>> patientsStream() {
-    return _patients
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map(PatientModel.fromDoc).toList());
+    return _patients.snapshots().map((snap) {
+      final list = snap.docs.map(PatientModel.fromDoc).toList();
+      final now = DateTime.now(); // เคสที่เพิ่งบันทึก createdAt ยังเป็น null
+      list.sort((a, b) {
+        final byTriage = a.triageScore.compareTo(b.triageScore);
+        if (byTriage != 0) return byTriage;
+        return (b.createdAt ?? now).compareTo(a.createdAt ?? now);
+      });
+      return list;
+    });
   }
 
   // Update
   Future<void> updatePatient(String id, Map<String, dynamic> data) async {
+    final ref = data['referralId'];
+    if (ref is String) await _ensureReferralUnique(ref, excludeId: id);
     await _patients.doc(id).update(data);
   }
 

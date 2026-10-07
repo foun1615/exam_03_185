@@ -48,6 +48,7 @@ class _FormScreenState extends State<FormScreen> {
   final _spo2 = TextEditingController();
   final _service = FirebaseService();
   bool _saving = false;
+  String? _referralError; // ข้อความ error จากเซิร์ฟเวอร์ (เช่น รหัสซ้ำ)
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -67,6 +68,11 @@ class _FormScreenState extends State<FormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')));
+    } on DuplicateReferralException {
+      if (!mounted) return;
+      // แสดง error ใต้ช่อง Referral ID
+      _referralError = DuplicateReferralException.message;
+      _formKey.currentState!.validate();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -98,7 +104,10 @@ class _FormScreenState extends State<FormScreen> {
                   labelText: 'รหัสส่งต่อผู้ป่วย (Referral ID)',
                   hintText: 'เช่น REF-EMR-2026',
                   border: OutlineInputBorder()),
-              validator: PatientValidators.required.call,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              onChanged: (_) => _referralError = null, // พิมพ์แก้แล้วล้าง error
+              validator: (v) =>
+                  _referralError ?? PatientValidators.required.call(v),
             ),
             const SizedBox(height: 12),
             TextFormField(

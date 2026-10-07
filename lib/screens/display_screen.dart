@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:exam_03_185/controllers/firebase_service.dart';
 import 'package:exam_03_185/models/patient_model.dart';
 import 'package:exam_03_185/screens/form_screen.dart';
@@ -87,9 +88,32 @@ class DisplayScreen extends StatelessWidget {
                   foregroundColor: Colors.white,
                   child: Text('${p.triageScore}'),
                 ),
-                title: Text(p.patientName),
-                subtitle: Text(
-                    'SpO2: ${p.spo2}%  |  แพทย์เจ้าของไข้: ${p.doctorEmail}\nRef: ${p.referralId}'),
+                title: Text(
+                  p.patientName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SpO2: ${p.spo2}%  |  แพทย์เจ้าของไข้: ${p.doctorEmail}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Ref: ${p.referralId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // createdAt เป็น null ชั่วคราวตอนเพิ่งบันทึก (รอเซิร์ฟเวอร์ตอบกลับ)
+                    Text(
+                      'วันที่บันทึก: ${p.createdAt == null ? '-' : DateFormat('dd/MM/yyyy').format(p.createdAt!)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
                 isThreeLine: true,
                 // Operator: ซ่อนปุ่ม Edit/Delete
                 trailing: user.isAdmin
@@ -129,6 +153,9 @@ class _EditDialog extends StatefulWidget {
 
 class _EditDialogState extends State<_EditDialog> {
   final _formKey = GlobalKey<FormState>();
+  String? _referralError; // ข้อความ error จากเซิร์ฟเวอร์ (เช่น รหัสซ้ำ)
+  late final TextEditingController _referralId =
+      TextEditingController(text: widget.patient.referralId);
   late final TextEditingController _name =
       TextEditingController(text: widget.patient.patientName);
   late final TextEditingController _doctorEmail =
@@ -141,13 +168,20 @@ class _EditDialogState extends State<_EditDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     try {
+      final newRef = _referralId.text.trim();
       await FirebaseService().updatePatient(widget.patient.id!, {
+        // ส่งเฉพาะเมื่อมีการเปลี่ยนรหัส จะได้ไม่ถูกบล็อกเพราะข้อมูลเก่าที่ซ้ำอยู่แล้ว
+        if (newRef != widget.patient.referralId) 'referralId': newRef,
         'patientName': _name.text.trim(),
         'doctorEmail': _doctorEmail.text.trim(),
         'triageScore': int.parse(_triage.text.trim()),
         'spo2': double.parse(_spo2.text.trim()),
       });
       if (mounted) Navigator.pop(context);
+    } on DuplicateReferralException {
+      if (!mounted) return;
+      _referralError = DuplicateReferralException.message;
+      _formKey.currentState!.validate();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -157,6 +191,7 @@ class _EditDialogState extends State<_EditDialog> {
 
   @override
   void dispose() {
+    _referralId.dispose();
     _name.dispose();
     _doctorEmail.dispose();
     _triage.dispose();
@@ -174,6 +209,15 @@ class _EditDialogState extends State<_EditDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              TextFormField(
+                controller: _referralId,
+                decoration: const InputDecoration(
+                    labelText: 'รหัสส่งต่อผู้ป่วย (Referral ID)'),
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                onChanged: (_) => _referralError = null, // พิมพ์แก้แล้วล้าง error
+                validator: (v) =>
+                    _referralError ?? PatientValidators.required.call(v),
+              ),
               TextFormField(
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'ชื่อ / HN'),

@@ -8,6 +8,7 @@ class PatientModel {
   final String doctorEmail;
   final int triageScore; // 1-5
   final double spo2; // %
+  final DateTime? createdAt; // เวลาที่บันทึก (null = เซิร์ฟเวอร์ยังไม่ตอบกลับ)
 
   PatientModel({
     this.id,
@@ -16,6 +17,7 @@ class PatientModel {
     required this.doctorEmail,
     required this.triageScore,
     required this.spo2,
+    this.createdAt,
   });
 
   Map<String, dynamic> toMap() => {
@@ -35,6 +37,7 @@ class PatientModel {
       doctorEmail: d['doctorEmail'] ?? '',
       triageScore: (d['triageScore'] ?? 5).toInt(),
       spo2: (d['spo2'] ?? 0).toDouble(),
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 }
